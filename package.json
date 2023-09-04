@@ -1,0 +1,23 @@
+{
+  "name": "ple-compiler-example",
+  "version": "1.0.0",
+  "description": "A small compiler for the PLE book",
+  "type": "module",
+  "main": "bellac.js",
+  "scripts": {
+    "test": "c8 mocha"
+  },
+  "keywords": [
+    "compiler",
+    "ohm"
+  ],
+  "author": "rtoal",
+  "license": "MIT",
+  "dependencies": {
+    "ohm-js": "^17.1.0"
+  },
+  "devDependencies": {
+    "c8": "^8.0.1",
+    "mocha": "^10.2.0"
+  }
+}
