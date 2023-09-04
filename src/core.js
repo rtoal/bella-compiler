@@ -69,13 +69,3 @@ export class Function {
     Object.assign(this, { name, paramCount })
   }
 }
-
-export const standardLibrary = Object.freeze({
-  π: new Variable("π", true),
-  sqrt: new Function("sqrt", 1),
-  sin: new Function("sin", 1),
-  cos: new Function("cos", 1),
-  exp: new Function("exp", 1),
-  ln: new Function("ln", 1),
-  hypot: new Function("hypot", 2),
-})

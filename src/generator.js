@@ -1,10 +1,3 @@
-// CODE GENERATOR
-//
-// Invoke generate(program) with the program node to get back the JavaScript
-// translation as a string.
-
-import { standardLibrary } from "./core.js"
-
 export default function generate(program) {
   const output = []
 
@@ -31,7 +24,6 @@ export default function generate(program) {
       output.push(`let ${targetName(d.variable)} = ${gen(d.initializer)};`)
     },
     Variable(v) {
-      if (v === standardLibrary.π) return "Math.PI"
       return targetName(v)
     },
     FunctionDeclaration(d) {
@@ -41,15 +33,7 @@ export default function generate(program) {
       output.push("}")
     },
     Function(f) {
-      const standard = new Map([
-        [standardLibrary.sqrt, "Math.sqrt"],
-        [standardLibrary.sin, "Math.sin"],
-        [standardLibrary.cos, "Math.cos"],
-        [standardLibrary.exp, "Math.exp"],
-        [standardLibrary.ln, "Math.log"],
-        [standardLibrary.hypot, "Math.hypot"],
-      ]).get(f)
-      return standard ?? targetName(f)
+      return targetName(f)
     },
     PrintStatement(s) {
       const argument = gen(s.argument)

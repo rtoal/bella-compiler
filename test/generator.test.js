@@ -62,17 +62,6 @@ const fixtures = [
       console.log(gcd_3(22,33));
     `,
   },
-  {
-    name: "standard library",
-    source: `
-      let x = π;
-      print(sin(x) - cos(x) + exp(x) * ln(x) / hypot(2.3, x));
-    `,
-    expected: dedent`
-      let x_1 = Math.PI;
-      console.log(((Math.sin(x_1) - Math.cos(x_1)) + ((Math.exp(x_1) * Math.log(x_1)) / Math.hypot(2.3,x_1))));
-    `,
-  },
 ]
 
 describe("The code generator", () => {

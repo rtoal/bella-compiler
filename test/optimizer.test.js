@@ -9,13 +9,14 @@ const x = new core.Variable("x", false)
 const neg = (x) => new core.UnaryExpression("-", x)
 const power = (x, y) => new core.BinaryExpression("**", x, y)
 const cond = (x, y, z) => new core.Conditional(x, y, z)
-const sqrt = core.standardLibrary.sqrt
 const call = (f, args) => new core.Call(f, args)
 const letXEq1 = new core.VariableDeclaration(x, 1)
 const print = (e) => new core.PrintStatement(e)
 const parameterless = (name) => new core.Function(name, 0)
+const oneParamFunc = new core.Function("f", 1)
 const program = (p) => analyze(parse(p))
-const expression = (e) => program(`let x=1; print ${e};`).statements[1].argument
+const expression = (e) =>
+  program(`let x=1; func f(x)=x; print ${e};`).statements[2].argument
 
 const tests = [
   ["folds +", expression("5 + 8"), 13],
@@ -37,13 +38,8 @@ const tests = [
   ["folds negation", expression("- 8"), -8],
   ["optimizes 1**", expression("1 ** x"), 1],
   ["optimizes **0", expression("x ** 0"), 1],
-  ["optimizes sqrt", expression("sqrt(16)"), 4],
-  ["optimizes sin", expression("sin(0)"), 0],
-  ["optimizes cos", expression("cos(0)"), 1],
-  ["optimizes exp", expression("exp(1)"), Math.E],
-  ["optimizes ln", expression("ln(2)"), Math.LN2],
   ["optimizes deeply", expression("8 * (-5) + 2 ** 3"), -32],
-  ["optimizes arguments", expression("sqrt(20 + 61)"), 9],
+  ["optimizes arguments", expression("f(20 + 61)"), call(oneParamFunc, [81])],
   ["optimizes true conditionals", expression("1?3:5"), 3],
   ["optimizes false conditionals", expression("0?3:5"), 5],
   ["leaves nonoptimizable binaries alone", expression("x ** 5"), power(x, 5)],
@@ -53,7 +49,11 @@ const tests = [
     expression("x?x:2"),
     cond(x, x, 2),
   ],
-  ["leaves nonoptimizable calls alone", expression("sqrt(x)"), call(sqrt, [x])],
+  [
+    "leaves nonoptimizable calls alone",
+    call(oneParamFunc, [x]),
+    call(oneParamFunc, [x]),
+  ],
   ["leaves nonoptimizable negations alone", expression("-x"), neg(x)],
   [
     "optimizes in function body",
@@ -67,8 +67,8 @@ const tests = [
   ],
   [
     "optimizes while test",
-    program("while sqrt(25) {}"),
-    new core.Program([new core.WhileStatement(5, [])]),
+    program("while 1+1 {}"),
+    new core.Program([new core.WhileStatement(2, [])]),
   ],
 ]
 

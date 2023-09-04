@@ -1,20 +1,14 @@
-// OPTIMIZER
-//
-// This module exports a single function to perform machine-independent
-// optimizations on the analyzed semantic graph.
-//
-// The only optimizations supported here are:
-//
-//   - assignments to self (x = x) turn into no-ops
-//   - constant folding
-//   - some strength reductions (+0, -0, *0, *1, etc.)
-//   - Conditionals with constant tests collapse into a single arm
-
 import { UnaryExpression } from "./core.js"
 
 export default function optimize(node) {
   return optimizers[node.constructor.name](node)
 }
+
+// Includes optimizations like:
+//   - assignments to self (x = x) turn into no-ops
+//   - constant folding
+//   - some strength reductions (+0, -0, *0, *1, etc.)
+//   - Conditionals with constant tests collapse into a single arm
 
 const optimizers = {
   Program(p) {
@@ -55,13 +49,6 @@ const optimizers = {
   Call(c) {
     c.callee = optimize(c.callee)
     c.args = optimize(c.args)
-    if (c.args.length === 1 && c.args[0].constructor === Number) {
-      if (c.callee.name === "sqrt") return Math.sqrt(c.args[0])
-      if (c.callee.name === "sin") return Math.sin(c.args[0])
-      if (c.callee.name === "cos") return Math.cos(c.args[0])
-      if (c.callee.name === "ln") return Math.log(c.args[0])
-      if (c.callee.name === "exp") return Math.exp(c.args[0])
-    }
     return c
   },
   Conditional(c) {
@@ -131,7 +118,7 @@ const optimizers = {
     return b
   },
   Array(a) {
-    // Optimizing arrays involves flattening an removing nulls
+    // Optimizing arrays involves flattening and removing nulls
     return a.flatMap(optimize).filter((s) => s !== null)
   },
 }

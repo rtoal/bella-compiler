@@ -6,10 +6,6 @@ import * as core from "../src/core.js"
 const semanticChecks = [
   ["variables can be printed", "let x = 1; print x;"],
   ["variables can be reassigned", "let x = 1; x = x * 5 / ((-3) + x);"],
-  [
-    "all predefined identifiers",
-    "print ln(sqrt(sin(cos(hypot(π,1) + exp(5.5)))));",
-  ],
 ]
 
 const semanticErrors = [
@@ -17,7 +13,7 @@ const semanticErrors = [
   ["a variable used as function", "x = 1; x(2);", /Expected "="/],
   [
     "a function used as variable",
-    "print(sin + 1);",
+    "func f() = 0; print(f + 1);",
     /Functions can not appear here/,
   ],
   [
@@ -25,20 +21,19 @@ const semanticErrors = [
     "let x = 1; let x = 2;",
     /Identifier x already declared/,
   ],
-  ["an attempt to write a read-only var", "π = 3;", /π is read only/],
   [
     "too few arguments",
-    "print(sin());",
+    "func f(x) = 0; print(f());",
     /1 argument\(s\) required but 0 passed/,
   ],
   [
     "too many arguments",
-    "print(sin(5, 10));",
+    "func f(x) = 0; print(f(1, 2));",
     /1 argument\(s\) required but 2 passed/,
   ],
 ]
 
-const sample = "let x=sqrt(9);func f(x)=3*x;while(true){x=3;print(0?f(x):2);}"
+const sample = "let x=3;func f(x)=3*x;while(true){x=3;print(0?f(x):2);}"
 
 describe("The analyzer", () => {
   for (const [scenario, source] of semanticChecks) {
@@ -59,10 +54,7 @@ describe("The analyzer", () => {
     assert.deepEqual(
       program,
       new core.Program([
-        new core.VariableDeclaration(
-          x,
-          new core.Call(core.standardLibrary.sqrt, [9])
-        ),
+        new core.VariableDeclaration(x, 3),
         new core.FunctionDeclaration(
           f,
           [localX],
