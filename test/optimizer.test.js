@@ -40,7 +40,7 @@ const tests = [
   ["optimizes **0", expression("x ** 0"), 1],
   ["optimizes deeply", expression("8 * (-5) + 2 ** 3"), -32],
   ["optimizes arguments", expression("f(20 + 61)"), call(oneParamFunc, [81])],
-  ["optimizes true conditionals", expression("1?3:5"), 3],
+  ["optimizes true conditionals", expression("true?3:5"), 3],
   ["optimizes false conditionals", expression("0?3:5"), 5],
   ["leaves nonoptimizable binaries alone", expression("x ** 5"), power(x, 5)],
   ["leaves 0**0 alone", expression("0 ** 0"), power(0, 0)],

@@ -1,7 +1,7 @@
-import { UnaryExpression } from "./core.js"
+import * as core from "./core.js"
 
-export default function optimize(node) {
-  return optimizers[node.constructor.name](node)
+export default function optimize(program) {
+  return program.optimize()
 }
 
 // Includes optimizations like:
@@ -10,115 +10,114 @@ export default function optimize(node) {
 //   - some strength reductions (+0, -0, *0, *1, etc.)
 //   - Conditionals with constant tests collapse into a single arm
 
-const optimizers = {
-  Program(p) {
-    p.statements = optimize(p.statements)
-    return p
-  },
-  VariableDeclaration(d) {
-    d.initializer = optimize(d.initializer)
-    return d
-  },
-  Variable(v) {
-    return v
-  },
-  FunctionDeclaration(d) {
-    d.params = optimize(d.params)
-    d.body = optimize(d.body)
-    return d
-  },
-  Function(f) {
-    return f
-  },
-  Assignment(s) {
-    s.source = optimize(s.source)
-    if (s.source === s.target) {
-      return null
+core.Program.prototype.optimize = function () {
+  this.statements = this.statements.optimize()
+  return this
+}
+core.VariableDeclaration.prototype.optimize = function () {
+  this.initializer = this.initializer.optimize()
+  return this
+}
+core.Variable.prototype.optimize = function () {
+  return this
+}
+core.FunctionDeclaration.prototype.optimize = function () {
+  this.params = this.params.optimize()
+  this.body = this.body.optimize()
+  return this
+}
+core.Function.prototype.optimize = function () {
+  return this
+}
+core.Assignment.prototype.optimize = function () {
+  this.source = this.source.optimize()
+  this.target = this.target.optimize()
+  if (this.source === this.target) {
+    return null
+  }
+  return this
+}
+core.WhileStatement.prototype.optimize = function () {
+  this.test = this.test.optimize()
+  this.body = this.body.optimize()
+  return this
+}
+core.PrintStatement.prototype.optimize = function () {
+  this.argument = this.argument.optimize()
+  return this
+}
+core.Call.prototype.optimize = function () {
+  this.callee = this.callee.optimize()
+  this.args = this.args.optimize()
+  return this
+}
+core.Conditional.prototype.optimize = function () {
+  this.test = this.test.optimize()
+  this.consequent = this.consequent.optimize()
+  this.alternate = this.alternate.optimize()
+  if (this.test.constructor === Number || this.test.constructor === Boolean) {
+    return this.test ? this.consequent : this.alternate
+  }
+  return this
+}
+core.UnaryExpression.prototype.optimize = function () {
+  this.operand = this.operand.optimize()
+  if (this.operand.constructor === Number) {
+    if (this.op === "-") {
+      return -this.operand
     }
-    return s
-  },
-  WhileStatement(s) {
-    s.test = optimize(s.test)
-    s.body = optimize(s.body)
-    return s
-  },
-  PrintStatement(s) {
-    s.argument = optimize(s.argument)
-    return s
-  },
-  Call(c) {
-    c.callee = optimize(c.callee)
-    c.args = optimize(c.args)
-    return c
-  },
-  Conditional(c) {
-    c.test = optimize(c.test)
-    c.consequent = optimize(c.consequent)
-    c.alternate = optimize(c.alternate)
-    if (c.test.constructor === Number || c.test.constructor === Boolean) {
-      return c.test ? c.consequent : c.alternate
-    }
-    return c
-  },
-  BinaryExpression(e) {
-    e.left = optimize(e.left)
-    e.right = optimize(e.right)
-    if (e.left.constructor === Number) {
-      if (e.right.constructor === Number) {
-        if (e.op === "+") {
-          return e.left + e.right
-        } else if (e.op === "-") {
-          return e.left - e.right
-        } else if (e.op === "*") {
-          return e.left * e.right
-        } else if (e.op === "/") {
-          return e.left / e.right
-        } else if (e.op === "%") {
-          return e.left % e.right
-        } else if (e.op === "**" && !(e.left === 0 && e.right == 0)) {
-          return e.left ** e.right
-        }
-      } else if (e.left === 0 && e.op === "+") {
-        return e.right
-      } else if (e.left === 1 && e.op === "*") {
-        return e.right
-      } else if (e.left === 0 && e.op === "-") {
-        return new UnaryExpression("-", e.right)
-      } else if (e.left === 0 && ["*", "/", "%"].includes(e.op)) {
-        return 0
-      } else if (e.op === "**" && e.left === 1) {
-        return 1
+  }
+  return this
+}
+core.BinaryExpression.prototype.optimize = function () {
+  this.left = this.left.optimize()
+  this.right = this.right.optimize()
+  if (this.left.constructor === Number) {
+    if (this.right.constructor === Number) {
+      if (this.op === "+") {
+        return this.left + this.right
+      } else if (this.op === "-") {
+        return this.left - this.right
+      } else if (this.op === "*") {
+        return this.left * this.right
+      } else if (this.op === "/") {
+        return this.left / this.right
+      } else if (this.op === "%") {
+        return this.left % this.right
+      } else if (this.op === "**" && this.left !== 0 && this.right !== 0) {
+        return this.left ** this.right
       }
-    } else if (e.right.constructor === Number) {
-      if (["+", "-"].includes(e.op) && e.right === 0) {
-        return e.left
-      } else if (["*", "/"].includes(e.op) && e.right === 1) {
-        return e.left
-      } else if (e.op === "*" && e.right === 0) {
-        return 0
-      } else if (e.op === "**" && e.left !== 0 && e.right === 0) {
-        return 1
-      }
+    } else if (this.left === 0 && this.op === "+") {
+      return this.right
+    } else if (this.left === 1 && this.op === "*") {
+      return this.right
+    } else if (this.left === 0 && this.op === "-") {
+      return new core.UnaryExpression("-", this.right)
+    } else if (this.left === 0 && ["*", "/", "%"].includes(this.op)) {
+      return 0
+    } else if (this.op === "**" && this.left === 1) {
+      return 1
     }
-    return e
-  },
-  UnaryExpression(e) {
-    e.operand = optimize(e.operand)
-    if (e.operand.constructor === Number) {
-      if (e.op === "-") {
-        return -e.operand
-      }
+  } else if (this.right.constructor === Number) {
+    if (["+", "-"].includes(this.op) && this.right === 0) {
+      return this.left
+    } else if (["*", "/"].includes(this.op) && this.right === 1) {
+      return this.left
+    } else if (this.op === "*" && this.right === 0) {
+      return 0
+    } else if (this.op === "**" && this.left !== 0 && this.right === 0) {
+      return 1
     }
-    return e
-  },
-  Number(n) {
-    return n
-  },
-  Boolean(b) {
-    return b
-  },
-  Array(a) {
-    // Optimizing arrays involves flattening and removing nulls
-    return a.flatMap(optimize).filter((s) => s !== null)
-  },
+  }
+  return this
+}
+Number.prototype.optimize = function () {
+  return this
+}
+Boolean.prototype.optimize = function () {
+  return this
+}
+Array.prototype.optimize = function () {
+  // Optimizing arrays involves flattening and removing nulls
+  return this.flatMap(optimize).filter((s) => s !== null)
 }
