@@ -13,12 +13,12 @@ export function compile(source) {
 
 if (process.argv.length !== 3) {
   console.error("Must have exactly one argument, a file name")
-  return
-}
-try {
-  const buffer = await fs.readFile(process.argv[2])
-  console.log(compile(buffer.toString()))
-} catch (e) {
-  console.error(`\u001b[31m${e}\u001b[39m`)
-  process.exitCode = 1
+} else {
+  try {
+    const buffer = await fs.readFile(process.argv[2])
+    console.log(compile(buffer.toString()))
+  } catch (e) {
+    console.error(`\u001b[31m${e}\u001b[39m`)
+    process.exitCode = 1
+  }
 }
