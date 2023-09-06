@@ -1,3 +1,5 @@
+import * as core from "./core.js"
+
 export default function generate(program) {
   const output = []
 
@@ -14,66 +16,57 @@ export default function generate(program) {
     }
   })(new Map())
 
-  const gen = (node) => generators[node.constructor.name](node)
-
-  const generators = {
-    Program(p) {
-      gen(p.statements)
-    },
-    VariableDeclaration(d) {
-      output.push(`let ${targetName(d.variable)} = ${gen(d.initializer)};`)
-    },
-    Variable(v) {
-      return targetName(v)
-    },
-    FunctionDeclaration(d) {
-      const params = d.params.map(targetName).join(", ")
-      output.push(`function ${targetName(d.fun)}(${params}) {`)
-      output.push(`return ${gen(d.body)};`)
-      output.push("}")
-    },
-    Function(f) {
-      return targetName(f)
-    },
-    PrintStatement(s) {
-      const argument = gen(s.argument)
-      output.push(`console.log(${argument});`)
-    },
-    Assignment(s) {
-      output.push(`${targetName(s.target)} = ${gen(s.source)};`)
-    },
-    WhileStatement(s) {
-      output.push(`while (${gen(s.test)}) {`)
-      gen(s.body)
-      output.push("}")
-    },
-    Call(c) {
-      const args = gen(c.args)
-      const callee = gen(c.callee)
-      return `${callee}(${args.join(",")})`
-    },
-    Conditional(e) {
-      return `((${gen(e.test)}) ? (${gen(e.consequent)}) : (${gen(
-        e.alternate
-      )}))`
-    },
-    BinaryExpression(e) {
-      return `(${gen(e.left)} ${e.op} ${gen(e.right)})`
-    },
-    UnaryExpression(e) {
-      return `${e.op}(${gen(e.operand)})`
-    },
-    Number(e) {
-      return e
-    },
-    Boolean(e) {
-      return e
-    },
-    Array(a) {
-      return a.map(gen)
-    },
+  core.Program.prototype.gen = function () {
+    this.statements.gen()
+  }
+  core.VariableDeclaration.prototype.gen = function () {
+    output.push(`let ${this.variable.gen()} = ${this.initializer.gen()};`)
+  }
+  core.Variable.prototype.gen = function () {
+    return targetName(this)
+  }
+  core.FunctionDeclaration.prototype.gen = function () {
+    const params = this.params.map(targetName).join(", ")
+    output.push(`function ${this.fun.gen()}(${params}) {`)
+    output.push(`return ${this.body.gen()};`)
+    output.push("}")
+  }
+  core.Function.prototype.gen = function () {
+    return targetName(this)
+  }
+  core.PrintStatement.prototype.gen = function () {
+    output.push(`console.log(${this.argument.gen()});`)
+  }
+  core.Assignment.prototype.gen = function () {
+    output.push(`${this.target.gen()} = ${this.source.gen()};`)
+  }
+  core.WhileStatement.prototype.gen = function () {
+    output.push(`while (${this.test.gen()}) {`)
+    this.body.gen()
+    output.push("}")
+  }
+  core.Call.prototype.gen = function () {
+    return `${this.callee.gen()}(${this.args.gen()})`
+  }
+  core.Conditional.prototype.gen = function () {
+    return `((${this.test.gen()}) ? (${this.consequent.gen()}) : (${this.alternate.gen()}))`
+  }
+  core.BinaryExpression.prototype.gen = function () {
+    return `(${this.left.gen()} ${this.op} ${this.right.gen()})`
+  }
+  core.UnaryExpression.prototype.gen = function () {
+    return `${this.op}(${this.operand.gen()})`
+  }
+  Number.prototype.gen = function () {
+    return this
+  }
+  Boolean.prototype.gen = function () {
+    return this
+  }
+  Array.prototype.gen = function () {
+    return this.map((element) => element.gen())
   }
 
-  gen(program)
+  program.gen()
   return output.join("\n")
 }
