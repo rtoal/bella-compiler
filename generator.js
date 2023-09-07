@@ -16,6 +16,10 @@ export default function generate(program) {
   })
 }
 
+// Each of the entities gets a generator method, which executes in a
+// context, c. The generator context for Bella is rather trivial, it only
+// needs a a method to generate a target name for a given entity.
+
 core.Program.prototype.gen = function (c) {
   return this.statements.gen(c).join("\n")
 }
@@ -26,10 +30,9 @@ core.Variable.prototype.gen = function (c) {
   return c.targetName(this)
 }
 core.FunctionDeclaration.prototype.gen = function (c) {
+  const { fun, body } = this
   const params = this.params.map((n) => c.targetName(n)).join(", ")
-  return `function ${this.fun.gen(c)}(${params}) { return ${this.body.gen(
-    c
-  )}; }`
+  return `function ${fun.gen(c)}(${params}) { return ${body.gen(c)}; }`
 }
 core.Function.prototype.gen = function (c) {
   return c.targetName(this)
@@ -56,10 +59,10 @@ core.BinaryExpression.prototype.gen = function (c) {
 core.UnaryExpression.prototype.gen = function (c) {
   return `${this.op}(${this.operand.gen(c)})`
 }
-Number.prototype.gen = function (c) {
+Number.prototype.gen = function (_) {
   return this
 }
-Boolean.prototype.gen = function (c) {
+Boolean.prototype.gen = function (_) {
   return this
 }
 Array.prototype.gen = function (c) {

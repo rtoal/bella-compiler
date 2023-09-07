@@ -1,10 +1,13 @@
 import * as core from "./core.js"
+import * as util from "node:util"
 
 export default function generate(program) {
   // Variable names in JS will be suffixed with _1, _2, _3, etc. This is
   // because "for", for example, is a legal variable name in Bella, but
   // not in JS. So we want to generate something like "for_1". We handle
   // this by mapping each variable declaration to its suffix.
+  console.log(util.inspect(program, { depth: null, colors: true }))
+
   return program.gen({
     targetName: ((mapping) => {
       return (entity) => {
@@ -27,12 +30,9 @@ core.Variable.prototype.gen = function (c) {
   return c.targetName(this)
 }
 core.FunctionDeclaration.prototype.gen = function (c) {
-  const params = this.params.map((n) => c.targetName(n)).join(", ")
-  return [
-    `function ${this.fun.gen(c)}(${params}) {`,
-    `return ${this.body.gen(c)};`,
-    "}",
-  ].join("\n")
+  const name = c.targetName(this.fun)
+  const params = this.fun.params.map((n) => c.targetName(n)).join(", ")
+  return `function ${name}(${params}) { return ${this.body.gen(c)}; }`
 }
 core.Function.prototype.gen = function (c) {
   return c.targetName(this)

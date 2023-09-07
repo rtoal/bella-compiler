@@ -11,8 +11,8 @@ export class VariableDeclaration {
 }
 
 export class FunctionDeclaration {
-  constructor(fun, params, body) {
-    Object.assign(this, { fun, params, body })
+  constructor(fun, body) {
+    Object.assign(this, { fun, body })
   }
 }
 
@@ -36,36 +36,43 @@ export class PrintStatement {
 
 export class Call {
   constructor(callee, args) {
-    Object.assign(this, { callee, args })
+    Object.assign(this, { callee, args, type: callee.type })
   }
 }
 
 export class Conditional {
   constructor(test, consequent, alternate) {
-    Object.assign(this, { test, consequent, alternate })
+    const type = consequent.type
+    Object.assign(this, { test, consequent, alternate, type })
   }
 }
 
 export class BinaryExpression {
   constructor(op, left, right) {
-    Object.assign(this, { op, left, right })
+    const booleanProducers = ["||", "&&", "<", "<=", "==", "!=", ">", ">="]
+    const type = booleanProducers.includes(op) ? "boolean" : "number"
+    Object.assign(this, { op, left, right, type })
   }
 }
 
 export class UnaryExpression {
   constructor(op, operand) {
-    Object.assign(this, { op, operand })
+    const type = op === "!" ? "boolean" : "number"
+    Object.assign(this, { op, operand, type })
   }
 }
 
 export class Variable {
-  constructor(name, readOnly) {
-    Object.assign(this, { name, readOnly })
+  constructor(name, type) {
+    Object.assign(this, { name, type })
   }
 }
 
 export class Function {
-  constructor(name, paramCount) {
-    Object.assign(this, { name, paramCount })
+  constructor(name, params, type) {
+    Object.assign(this, { name, params, type })
   }
 }
+
+Number.prototype.type = "number"
+Boolean.prototype.type = "boolean"

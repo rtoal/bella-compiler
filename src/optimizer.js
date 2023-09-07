@@ -22,11 +22,11 @@ core.Variable.prototype.optimize = function () {
   return this
 }
 core.FunctionDeclaration.prototype.optimize = function () {
-  this.params = this.params.optimize()
   this.body = this.body.optimize()
   return this
 }
 core.Function.prototype.optimize = function () {
+  this.params = this.params.optimize()
   return this
 }
 core.Assignment.prototype.optimize = function () {
@@ -55,7 +55,7 @@ core.Conditional.prototype.optimize = function () {
   this.test = this.test.optimize()
   this.consequent = this.consequent.optimize()
   this.alternate = this.alternate.optimize()
-  if (this.test.constructor === Number || this.test.constructor === Boolean) {
+  if (this.test.constructor === Boolean) {
     return this.test ? this.consequent : this.alternate
   }
   return this
@@ -86,6 +86,18 @@ core.BinaryExpression.prototype.optimize = function () {
         return this.left % this.right
       } else if (this.op === "**" && this.left !== 0 && this.right !== 0) {
         return this.left ** this.right
+      } else if (this.op === "==") {
+        return this.left === this.right
+      } else if (this.op === "!=") {
+        return this.left !== this.right
+      } else if (this.op === "<") {
+        return this.left < this.right
+      } else if (this.op === "<=") {
+        return this.left <= this.right
+      } else if (this.op === ">=") {
+        return this.left >= this.right
+      } else if (this.op === ">") {
+        return this.left > this.right
       }
     } else if (this.left === 0 && this.op === "+") {
       return this.right

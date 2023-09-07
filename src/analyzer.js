@@ -5,14 +5,15 @@
 // includes all entities including those from the standard library.
 
 import * as core from "./core.js"
+import * as util from "node:util"
 
 // The single gate for error checking. Pass in a condition that must be true.
 // Use errorLocation to give contextual information about the error that will
 // appear: this should be an object whose "at" property is a parse tree node.
 // Ohm's getLineAndColumnMessage will be used to prefix the error message.
-function must(condition, message, errorLocation) {
+function must(condition, message, { at: errorLocation }) {
   if (!condition) {
-    const prefix = errorLocation.at.source.getLineAndColumnMessage()
+    const prefix = errorLocation.source.getLineAndColumnMessage()
     throw new Error(`${prefix}${message}`)
   }
 }
@@ -22,45 +23,57 @@ class Context {
     this.parent = parent
     this.locals = new Map()
   }
-  add(name, entity) {
+  add(id, entity) {
+    const name = id.sourceString
+    must(!this.locals.has(name), `${name} already declared`, { at: id })
     this.locals.set(name, entity)
   }
-  lookup(name) {
-    return this.locals.get(name) || this.parent?.lookup(name)
+  entityFor(name) {
+    return this.locals.get(name) || this.parent?.entityFor(name)
+  }
+  lookup(id, { expecting: kind }) {
+    const name = id.sourceString
+    const entity = this.entityFor(name)
+    must(entity, `${name} has not been declared`, { at: id })
+    const hasExpectedKind = entity instanceof kind
+    must(hasExpectedKind, `${name} is not a ${kind.name}`, { at: id })
+    return entity
   }
 }
 
 export default function analyze(match) {
   let context = new Context()
 
-  function mustNotHaveBeDeclared(name, at) {
-    must(!context.locals.has(name), `Identifier ${name} already declared`, at)
+  function checkAssignable({ from, to, at }) {
+    const isVar = (entity) => entity instanceof core.Variable
+    if (from.type === undefined && isVar(from)) from.type = to.type
+    if (to.type === undefined && isVar(to)) to.type = from.type
+    const stillBothUndefined = from.type === undefined && to.type === undefined
+    must(!stillBothUndefined, `Cannot infer types`, { at })
+    must(from.type === to.type, `Expected ${to.type}, got ${from.type}`, { at })
   }
 
-  function mustHaveBeenFound(entity, name, at) {
-    must(entity, `Identifier ${name} not declared`, at)
+  function checkNumber(entity, { at }) {
+    checkAssignable({ from: entity, to: { type: "number" }, at })
   }
 
-  function mustNotBeReadOnly(entity, at) {
-    must(!entity.readOnly, `${entity.name} is read only`, at)
+  function checkBoolean(entity, { at }) {
+    checkAssignable({ from: entity, to: { type: "boolean" }, at })
   }
 
-  function mustBeAVariable(entity, at) {
-    // Bella has two kinds of entities: variables and functions.
-    must(entity instanceof core.Variable, `Functions can not appear here`, at)
+  function checkBothNumbers(entity1, entity2, { at }) {
+    checkNumber(entity1, { at })
+    checkNumber(entity2, { at })
   }
 
-  function mustBeAFunction(entity, at) {
-    must(
-      entity instanceof core.Function,
-      `${entity.name} is not a function`,
-      at
-    )
+  function checkBothBooleans(entity1, entity2, { at }) {
+    checkBoolean(entity1, { at })
+    checkBoolean(entity2, { at })
   }
 
-  function mustHaveRightNumberOfArguments(argCount, paramCount, at) {
+  function checkArgCount(argCount, paramCount, { at }) {
     const message = `${paramCount} argument(s) required but ${argCount} passed`
-    must(argCount === paramCount, message, at)
+    must(argCount === paramCount, message, { at })
   }
 
   const analyzer = match.matcher.grammar.createSemantics().addOperation("rep", {
@@ -72,11 +85,11 @@ export default function analyze(match) {
       // Analyze the initializer *before* adding the variable to the context,
       // because we don't want the variable to come into scope until after
       // the declaration. That is, "let x=x;" should be an error (unless x
-      // was already defined in an outer scope.)
+      // was already defined in an outer scope.) Also we need to use the type
+      // of the initializer for the type of the variable.
       const initializer = exp.rep()
-      const variable = new core.Variable(id.sourceString, false)
-      mustNotHaveBeDeclared(id.sourceString, { at: id })
-      context.add(id.sourceString, variable)
+      const variable = new core.Variable(id.sourceString, initializer.type)
+      context.add(id, variable)
       return new core.VariableDeclaration(variable, initializer)
     },
 
@@ -85,34 +98,31 @@ export default function analyze(match) {
       // have the number of params yet; that will come later. But we have
       // to get the function in the context right way, to allow recursion.
       const fun = new core.Function(id.sourceString)
-      mustNotHaveBeDeclared(id.sourceString, { at: id })
-      context.add(id.sourceString, fun)
+      context.add(id, fun)
 
       // Add the params and body to the child context, updating the
       // function object with the parameter count once we have it.
       context = new Context(context)
-      const params = parameters.rep()
-      fun.paramCount = params.length
+      fun.params = parameters.rep()
       const body = exp.rep()
+      fun.type = body.type
       context = context.parent
 
-      return new core.FunctionDeclaration(fun, params, body)
+      return new core.FunctionDeclaration(fun, body)
     },
 
     Params(_open, idList, _close) {
       return idList.asIteration().children.map((id) => {
-        const param = new core.Variable(id.sourceString, true)
-        // Check that they are all unique
-        mustNotHaveBeDeclared(id.sourceString, { at: id })
-        context.add(id.sourceString, param)
+        const param = new core.Variable(id.sourceString, undefined)
+        context.add(id, param)
         return param
       })
     },
 
-    Statement_assign(id, _eq, exp, _semicolon) {
-      const target = id.rep()
-      mustNotBeReadOnly(target, { at: id })
-      return new core.Assignment(target, exp.rep())
+    Statement_assign(id, eq, exp, _semicolon) {
+      const [target, source] = [id.rep(), exp.rep()]
+      checkAssignable({ from: target, to: source, at: eq })
+      return new core.Assignment(target, source)
     },
 
     Statement_print(_print, exp, _semicolon) {
@@ -120,6 +130,7 @@ export default function analyze(match) {
     },
 
     Statement_while(_while, exp, block) {
+      checkBoolean(exp.rep(), { at: exp })
       return new core.WhileStatement(exp.rep(), block.rep())
     },
 
@@ -128,61 +139,77 @@ export default function analyze(match) {
     },
 
     Exp_unary(op, exp) {
-      return new core.UnaryExpression(op.sourceString, exp.rep())
+      const [o, x] = [op.sourceString, exp.rep()]
+      if (o === "-") checkNumber(x, { at: exp })
+      else checkBoolean(x, { at: exp })
+      return new core.UnaryExpression(o, x)
     },
 
-    Exp_ternary(exp1, _questionMark, exp2, _colon, exp3) {
-      return new core.Conditional(exp1.rep(), exp2.rep(), exp3.rep())
+    Exp_ternary(exp1, _questionMark, exp2, colon, exp3) {
+      const [x, y, z] = [exp1.rep(), exp2.rep(), exp3.rep()]
+      console.log(util.inspect(x, { depth: null, colors: true }))
+      console.log(util.inspect(y, { depth: null, colors: true }))
+      console.log(util.inspect(z, { depth: null, colors: true }))
+
+      checkBoolean(x, { at: exp1 })
+      checkAssignable({ from: y, to: z, at: colon })
+      return new core.Conditional(x, y, z)
     },
 
     Exp1_binary(exp1, op, exp2) {
-      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
+      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
+      checkBothBooleans(x, y, { at: op })
+      return new core.BinaryExpression(o, x, y)
     },
 
     Exp2_binary(exp1, op, exp2) {
-      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
+      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
+      checkBothBooleans(x, y, { at: op })
+      return new core.BinaryExpression(o, x, y)
     },
 
     Exp3_binary(exp1, op, exp2) {
-      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
+      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
+      checkBothNumbers(x, y, { at: op })
+      return new core.BinaryExpression(o, x, y)
     },
 
     Exp4_binary(exp1, op, exp2) {
-      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
+      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
+      checkBothNumbers(x, y, { at: op })
+      return new core.BinaryExpression(o, x, y)
     },
 
     Exp5_binary(exp1, op, exp2) {
-      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
+      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
+      checkBothNumbers(x, y, { at: op })
+      return new core.BinaryExpression(o, x, y)
     },
 
     Exp6_binary(exp1, op, exp2) {
-      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
+      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
+      checkBothNumbers(x, y, { at: op })
+      return new core.BinaryExpression(o, x, y)
     },
 
     Exp7_parens(_open, exp, _close) {
       return exp.rep()
     },
 
-    Call(id, _open, expList, _close) {
-      // ids used in calls must have already been declared and must be
-      // bound to function entities, not to variable entities.
-      const callee = context.lookup(id.sourceString)
-      mustHaveBeenFound(callee, id.sourceString, { at: id })
-      mustBeAFunction(callee, { at: id })
-      const args = expList.asIteration().children.map((arg) => arg.rep())
-      mustHaveRightNumberOfArguments(args.length, callee.paramCount, {
-        at: id,
+    Call(id, open, expList, _close) {
+      const callee = context.lookup(id, { expecting: core.Function })
+      const exps = expList.asIteration().children
+      checkArgCount(exps.length, callee.params.length, { at: open })
+      const args = exps.map((exp, i) => {
+        const arg = exp.rep()
+        checkAssignable({ from: arg, to: callee.params[i], at: exp })
+        return arg
       })
       return new core.Call(callee, args)
     },
 
     Exp7_id(id) {
-      // ids used in expressions must have been already declared and must
-      // be bound to variable entities, not function entities.
-      const entity = context.lookup(id.sourceString)
-      mustHaveBeenFound(entity, id.sourceString, { at: id })
-      mustBeAVariable(entity, { at: id })
-      return entity
+      return context.lookup(id, { expecting: core.Variable })
     },
 
     true(_) {

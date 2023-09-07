@@ -5,18 +5,19 @@ import optimize from "../src/optimizer.js"
 import * as core from "../src/core.js"
 
 // Make some test cases easier to read
-const x = new core.Variable("x", false)
+const x = new core.Variable("x", "number")
 const neg = (x) => new core.UnaryExpression("-", x)
 const power = (x, y) => new core.BinaryExpression("**", x, y)
+const greater = (x, y) => new core.BinaryExpression(">", x, y)
 const cond = (x, y, z) => new core.Conditional(x, y, z)
 const call = (f, args) => new core.Call(f, args)
 const letXEq1 = new core.VariableDeclaration(x, 1)
 const print = (e) => new core.PrintStatement(e)
-const parameterless = (name) => new core.Function(name, 0)
-const oneParamFunc = new core.Function("f", 1)
+const parameterless = (name) => new core.Function(name, [], "number")
+const oneParamFunc = new core.Function("f", [x], "number")
 const program = (p) => analyze(parse(p))
 const expression = (e) =>
-  program(`let x=1; func f(x)=x; print ${e};`).statements[2].argument
+  program(`let x=1; func f(x)=x+1; print ${e};`).statements[2].argument
 
 const tests = [
   ["folds +", expression("5 + 8"), 13],
@@ -41,13 +42,13 @@ const tests = [
   ["optimizes deeply", expression("8 * (-5) + 2 ** 3"), -32],
   ["optimizes arguments", expression("f(20 + 61)"), call(oneParamFunc, [81])],
   ["optimizes true conditionals", expression("true?3:5"), 3],
-  ["optimizes false conditionals", expression("0?3:5"), 5],
+  ["optimizes false conditionals", expression("false?3:5"), 5],
   ["leaves nonoptimizable binaries alone", expression("x ** 5"), power(x, 5)],
   ["leaves 0**0 alone", expression("0 ** 0"), power(0, 0)],
   [
     "leaves nonoptimizable conditionals alone",
-    expression("x?x:2"),
-    cond(x, x, 2),
+    expression("x > 3?1:2"),
+    cond(greater(x, 3), 1, 2),
   ],
   [
     "leaves nonoptimizable calls alone",
@@ -58,7 +59,7 @@ const tests = [
   [
     "optimizes in function body",
     program("func f() = 1+1;"),
-    new core.Program([new core.FunctionDeclaration(parameterless("f"), [], 2)]),
+    new core.Program([new core.FunctionDeclaration(parameterless("f"), 2)]),
   ],
   [
     "removes x=x",
@@ -67,8 +68,8 @@ const tests = [
   ],
   [
     "optimizes while test",
-    program("while 1+1 {}"),
-    new core.Program([new core.WhileStatement(2, [])]),
+    program("while 1<2 {}"),
+    new core.Program([new core.WhileStatement(true, [])]),
   ],
 ]
 
