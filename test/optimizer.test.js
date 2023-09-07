@@ -37,6 +37,7 @@ const tests = [
   ["optimizes 0-", expression("0 - x"), neg(x)],
   ["optimizes 1*", expression("1 * x"), x],
   ["folds negation", expression("- 8"), -8],
+  ["folds not", expression("! false"), true],
   ["optimizes 1**", expression("1 ** x"), 1],
   ["optimizes **0", expression("x ** 0"), 1],
   ["optimizes deeply", expression("8 * (-5) + 2 ** 3"), -32],

@@ -67,6 +67,11 @@ core.UnaryExpression.prototype.optimize = function () {
       return -this.operand
     }
   }
+  if (this.operand.constructor === Boolean) {
+    if (this.op === "!") {
+      return !this.operand
+    }
+  }
   return this
 }
 core.BinaryExpression.prototype.optimize = function () {
