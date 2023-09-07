@@ -5,7 +5,6 @@
 // includes all entities including those from the standard library.
 
 import * as core from "./core.js"
-import * as util from "node:util"
 
 // The single gate for error checking. Pass in a condition that must be true.
 // Use errorLocation to give contextual information about the error that will
@@ -45,9 +44,14 @@ export default function analyze(match) {
   let context = new Context()
 
   function checkAssignable({ from, to, at }) {
-    const isVar = (entity) => entity instanceof core.Variable
-    if (from.type === undefined && isVar(from)) from.type = to.type
-    if (to.type === undefined && isVar(to)) to.type = from.type
+    if (from.type === undefined) {
+      if (from instanceof core.Variable) from.type = to.type
+      else if (from instanceof core.Call) from.callee.type = from.type = to.type
+    }
+    if (to.type === undefined) {
+      if (to instanceof core.Variable) to.type = from.type
+      else if (to instanceof core.Call) to.callee.type = to.type = from.type
+    }
     const stillBothUndefined = from.type === undefined && to.type === undefined
     must(!stillBothUndefined, `Cannot infer types`, { at })
     must(from.type === to.type, `Expected ${to.type}, got ${from.type}`, { at })
@@ -147,9 +151,6 @@ export default function analyze(match) {
 
     Exp_ternary(exp1, _questionMark, exp2, colon, exp3) {
       const [x, y, z] = [exp1.rep(), exp2.rep(), exp3.rep()]
-      console.log(util.inspect(x, { depth: null, colors: true }))
-      console.log(util.inspect(y, { depth: null, colors: true }))
-      console.log(util.inspect(z, { depth: null, colors: true }))
 
       checkBoolean(x, { at: exp1 })
       checkAssignable({ from: y, to: z, at: colon })
