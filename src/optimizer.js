@@ -90,10 +90,10 @@ const optimizers = {
       if (e.op === "**" && e.right === 1) return e.left
       if (e.op === "**" && e.right === 0) return 1
     } else if (typeof e.left === "boolean") {
-      // if (e.op === "||" && e.left) return true
-      // if (e.op === "||" && !e.left) return e.right
-      // if (e.op === "&&" && e.left) return e.right
-      // if (e.op === "&&" && !e.left) return false
+      if (e.op === "||" && e.left) return true
+      if (e.op === "||" && !e.left) return e.right
+      if (e.op === "&&" && e.left) return e.right
+      if (e.op === "&&" && !e.left) return false
     }
   },
   UnaryExpression(e) {

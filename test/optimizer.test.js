@@ -6,6 +6,7 @@ import * as core from "../src/core.js"
 
 // Make some test cases easier to read
 const x = new core.Variable("x", "number")
+const y = new core.Variable("y", "boolean")
 const neg = (x) => new core.UnaryExpression("-", x)
 const power = (x, y) => new core.BinaryExpression("**", x, y)
 const greater = (x, y) => new core.BinaryExpression(">", x, y)
@@ -17,7 +18,8 @@ const parameterless = (name) => new core.Function(name, [], "number")
 const oneParamFunc = new core.Function("f", [x], "number")
 const program = (p) => analyze(parse(p))
 const expression = (e) =>
-  program(`let x=1; func f(x)=x+1; print ${e};`).statements[2].argument
+  program(`let x=1; let y=true; func f(x)=x+1; print ${e};`).statements[3]
+    .argument
 
 const tests = [
   ["folds +", expression("5 + 8"), 13],
@@ -26,6 +28,12 @@ const tests = [
   ["folds /", expression("5 / 8"), 0.625],
   ["folds %", expression("17 % 5"), 2],
   ["folds **", expression("5 ** 8"), 390625],
+  ["folds <", expression("5 < 8"), true],
+  ["folds <=", expression("5 <= 8"), true],
+  ["folds ==", expression("5 == 8"), false],
+  ["folds !=", expression("5 != 8"), true],
+  ["folds >=", expression("5 >= 8"), false],
+  ["folds >", expression("5 > 8"), false],
   ["optimizes +0", expression("x + 0"), x],
   ["optimizes -0", expression("x - 0"), x],
   ["optimizes *1", expression("x * 1"), x],
@@ -40,10 +48,17 @@ const tests = [
   ["folds not", expression("! false"), true],
   ["optimizes 1**", expression("1 ** x"), 1],
   ["optimizes **0", expression("x ** 0"), 1],
+  ["optimizes /0", expression("x / 0"), Infinity],
+  ["optimizes %0", expression("x % 0"), NaN],
+  ["optimizes **1", expression("x ** 1"), x],
   ["optimizes deeply", expression("8 * (-5) + 2 ** 3"), -32],
   ["optimizes arguments", expression("f(20 + 61)"), call(oneParamFunc, [81])],
   ["optimizes true conditionals", expression("true?3:5"), 3],
   ["optimizes false conditionals", expression("false?3:5"), 5],
+  ["optimizes true-or", expression("true || y"), true],
+  ["optimizes false-or", expression("false || y"), y],
+  ["optimizes true-and", expression("true && y"), y],
+  ["optimizes false-and", expression("false && y"), false],
   ["leaves nonoptimizable binaries alone", expression("x ** 5"), power(x, 5)],
   [
     "leaves nonoptimizable conditionals alone",
@@ -67,10 +82,11 @@ const tests = [
     new core.Program([letXEq1, print(x)]),
   ],
   [
-    "optimizes while test",
+    "optimizes in while test",
     program("while 1<2 {}"),
     new core.Program([new core.WhileStatement(true, [])]),
   ],
+  ["eliminates while false", program("while false {}"), new core.Program([])],
 ]
 
 describe("The optimizer", () => {
