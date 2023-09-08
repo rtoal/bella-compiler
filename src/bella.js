@@ -7,7 +7,7 @@ import analyze from "./analyzer.js"
 import optimize from "./optimizer.js"
 import generate from "./generator.js"
 
-export function compile(source) {
+function compile(source) {
   return generate(optimize(analyze(parse(source))))
 }
 

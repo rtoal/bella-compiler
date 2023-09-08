@@ -17,6 +17,43 @@ function must(condition, message, { at: errorLocation }) {
   }
 }
 
+function checkAssignable({ from, to, at }) {
+  if (from.type === undefined) {
+    if (from instanceof core.Variable) from.type = to.type
+    else if (from instanceof core.Call) from.callee.type = from.type = to.type
+  }
+  if (to.type === undefined) {
+    if (to instanceof core.Variable) to.type = from.type
+    else if (to instanceof core.Call) to.callee.type = to.type = from.type
+  }
+  const stillBothUndefined = from.type === undefined && to.type === undefined
+  must(!stillBothUndefined, `Cannot infer types`, { at })
+  must(from.type === to.type, `Expected ${to.type}, got ${from.type}`, { at })
+}
+
+function checkNumber(entity, { at }) {
+  checkAssignable({ from: entity, to: { type: "number" }, at })
+}
+
+function checkBoolean(entity, { at }) {
+  checkAssignable({ from: entity, to: { type: "boolean" }, at })
+}
+
+function checkBothNumbers(entity1, entity2, { at }) {
+  checkNumber(entity1, { at })
+  checkNumber(entity2, { at })
+}
+
+function checkBothBooleans(entity1, entity2, { at }) {
+  checkBoolean(entity1, { at })
+  checkBoolean(entity2, { at })
+}
+
+function checkArgCount(argCount, paramCount, { at }) {
+  const message = `${paramCount} argument(s) required but ${argCount} passed`
+  must(argCount === paramCount, message, { at })
+}
+
 class Context {
   constructor(parent) {
     this.parent = parent
@@ -27,12 +64,12 @@ class Context {
     must(!this.locals.has(name), `${name} already declared`, { at: id })
     this.locals.set(name, entity)
   }
-  entityFor(name) {
-    return this.locals.get(name) || this.parent?.entityFor(name)
+  get(name) {
+    return this.locals.get(name) || this.parent?.get(name)
   }
   lookup(id, { expecting: kind }) {
     const name = id.sourceString
-    const entity = this.entityFor(name)
+    const entity = this.get(name)
     must(entity, `${name} has not been declared`, { at: id })
     const hasExpectedKind = entity instanceof kind
     must(hasExpectedKind, `${name} is not a ${kind.name}`, { at: id })
@@ -42,43 +79,6 @@ class Context {
 
 export default function analyze(match) {
   let context = new Context()
-
-  function checkAssignable({ from, to, at }) {
-    if (from.type === undefined) {
-      if (from instanceof core.Variable) from.type = to.type
-      else if (from instanceof core.Call) from.callee.type = from.type = to.type
-    }
-    if (to.type === undefined) {
-      if (to instanceof core.Variable) to.type = from.type
-      else if (to instanceof core.Call) to.callee.type = to.type = from.type
-    }
-    const stillBothUndefined = from.type === undefined && to.type === undefined
-    must(!stillBothUndefined, `Cannot infer types`, { at })
-    must(from.type === to.type, `Expected ${to.type}, got ${from.type}`, { at })
-  }
-
-  function checkNumber(entity, { at }) {
-    checkAssignable({ from: entity, to: { type: "number" }, at })
-  }
-
-  function checkBoolean(entity, { at }) {
-    checkAssignable({ from: entity, to: { type: "boolean" }, at })
-  }
-
-  function checkBothNumbers(entity1, entity2, { at }) {
-    checkNumber(entity1, { at })
-    checkNumber(entity2, { at })
-  }
-
-  function checkBothBooleans(entity1, entity2, { at }) {
-    checkBoolean(entity1, { at })
-    checkBoolean(entity2, { at })
-  }
-
-  function checkArgCount(argCount, paramCount, { at }) {
-    const message = `${paramCount} argument(s) required but ${argCount} passed`
-    must(argCount === paramCount, message, { at })
-  }
 
   const analyzer = match.matcher.grammar.createSemantics().addOperation("rep", {
     Program(statements) {
@@ -151,7 +151,6 @@ export default function analyze(match) {
 
     Exp_ternary(exp1, _questionMark, exp2, colon, exp3) {
       const [x, y, z] = [exp1.rep(), exp2.rep(), exp3.rep()]
-
       checkBoolean(x, { at: exp1 })
       checkAssignable({ from: y, to: z, at: colon })
       return new core.Conditional(x, y, z)
