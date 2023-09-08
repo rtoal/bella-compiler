@@ -11,13 +11,13 @@ export function compile(source) {
   return generate(optimize(analyze(parse(source))))
 }
 
-// try {
-if (process.argv.length !== 3) {
-  throw new Error("Must have exactly one argument, a file name")
+try {
+  if (process.argv.length !== 3) {
+    throw new Error("Must have exactly one argument, a file name")
+  }
+  const buffer = await fs.readFile(process.argv[2])
+  console.log(compile(buffer.toString()))
+} catch (e) {
+  console.error(`\u001b[31m${e}\u001b[39m`)
+  process.exitCode = 1
 }
-const buffer = await fs.readFile(process.argv[2])
-console.log(compile(buffer.toString()))
-// } catch (e) {
-//   console.error(`\u001b[31m${e}\u001b[39m`)
-//   process.exitCode = 1
-// }
