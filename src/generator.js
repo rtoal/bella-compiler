@@ -3,19 +3,21 @@ export default function generate(program) {
   // because "for", for example, is a legal variable name in Bella, but
   // not in JS. So we want to generate something like "for_1". We handle
   // this by mapping each variable declaration to its suffix.
-  const targetName = ((mapping) => {
-    return (entity) => {
-      if (!mapping.has(entity)) {
-        mapping.set(entity, mapping.size + 1)
-      }
-      return `${entity.name}_${mapping.get(entity)}`
+  const suffixes = new Map()
+  function targetName(entity) {
+    if (!suffixes.has(entity)) {
+      suffixes.set(entity, suffixes.size + 1)
     }
-  })(new Map())
+    return `${entity.name}_${suffixes.get(entity)}`
+  }
 
-  // A little dispatch on the node type. We'll use this to generate the
-  // JS code (as a string) for each node. Assumes that the node will
-  // have a constructor name that matches one of the keys in the object.
-  const gen = (node) => generators[node.constructor.name](node)
+  // Dispatch to the appropriate generator based on the node's type.
+  // If there is no appropriate generator, just return the node. This
+  // will happen for numbers and boolean literals, for example.
+  function gen(node) {
+    if (!(node.constructor.name in generators)) return node
+    return generators[node.constructor.name](node)
+  }
 
   const generators = {
     Program({ statements }) {
@@ -55,12 +57,6 @@ export default function generate(program) {
     },
     UnaryExpression({ op, operand }) {
       return `${op}(${gen(operand)})`
-    },
-    Number(n) {
-      return n
-    },
-    Boolean(b) {
-      return b
     },
     Array(a) {
       return a.map(gen)

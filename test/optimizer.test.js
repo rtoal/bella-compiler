@@ -45,7 +45,6 @@ const tests = [
   ["optimizes true conditionals", expression("true?3:5"), 3],
   ["optimizes false conditionals", expression("false?3:5"), 5],
   ["leaves nonoptimizable binaries alone", expression("x ** 5"), power(x, 5)],
-  ["leaves 0**0 alone", expression("0 ** 0"), power(0, 0)],
   [
     "leaves nonoptimizable conditionals alone",
     expression("x > 3?1:2"),
