@@ -1,68 +1,70 @@
-import * as core from "./core.js"
-
 export default function generate(program) {
   // Variable names in JS will be suffixed with _1, _2, _3, etc. This is
   // because "for", for example, is a legal variable name in Bella, but
   // not in JS. So we want to generate something like "for_1". We handle
   // this by mapping each variable declaration to its suffix.
-  return program.gen({
-    targetName: ((mapping) => {
-      return (entity) => {
-        if (!mapping.has(entity)) {
-          mapping.set(entity, mapping.size + 1)
-        }
-        return `${entity.name}_${mapping.get(entity)}`
+  const targetName = ((mapping) => {
+    return (entity) => {
+      if (!mapping.has(entity)) {
+        mapping.set(entity, mapping.size + 1)
       }
-    })(new Map()),
-  })
-}
+      return `${entity.name}_${mapping.get(entity)}`
+    }
+  })(new Map())
 
-core.Program.prototype.gen = function (c) {
-  return this.statements.gen(c).join("\n")
-}
-core.VariableDeclaration.prototype.gen = function (c) {
-  return `let ${this.variable.gen(c)} = ${this.initializer.gen(c)};`
-}
-core.Variable.prototype.gen = function (c) {
-  return c.targetName(this)
-}
-core.FunctionDeclaration.prototype.gen = function (c) {
-  const name = c.targetName(this.fun)
-  const params = this.fun.params.map((n) => c.targetName(n)).join(", ")
-  return `function ${name}(${params}) { return ${this.body.gen(c)}; }`
-}
-core.Function.prototype.gen = function (c) {
-  return c.targetName(this)
-}
-core.PrintStatement.prototype.gen = function (c) {
-  return `console.log(${this.argument.gen(c)});`
-}
-core.Assignment.prototype.gen = function (c) {
-  return `${this.target.gen(c)} = ${this.source.gen(c)};`
-}
-core.WhileStatement.prototype.gen = function (c) {
-  return [`while (${this.test.gen(c)}) {`, ...this.body.gen(c), "}"].join("\n")
-}
-core.Call.prototype.gen = function (c) {
-  return `${this.callee.gen(c)}(${this.args.gen(c)})`
-}
-core.Conditional.prototype.gen = function (c) {
-  return `((${this.test.gen(c)}) ? (${this.consequent.gen(
-    c
-  )}) : (${this.alternate.gen(c)}))`
-}
-core.BinaryExpression.prototype.gen = function (c) {
-  return `(${this.left.gen(c)} ${this.op} ${this.right.gen(c)})`
-}
-core.UnaryExpression.prototype.gen = function (c) {
-  return `${this.op}(${this.operand.gen(c)})`
-}
-Number.prototype.gen = function (c) {
-  return this
-}
-Boolean.prototype.gen = function (c) {
-  return this
-}
-Array.prototype.gen = function (c) {
-  return this.map((element) => element.gen(c))
+  // A little dispatch on the node type. We'll use this to generate the
+  // JS code (as a string) for each node. Assumes that the node will
+  // have a constructor name that matches one of the keys in the object.
+  const gen = (node) => generators[node.constructor.name](node)
+
+  const generators = {
+    Program({ statements }) {
+      return gen(statements).join("\n")
+    },
+    VariableDeclaration({ variable, initializer }) {
+      return `let ${gen(variable)} = ${gen(initializer)};`
+    },
+    Variable(variable) {
+      return targetName(variable)
+    },
+    FunctionDeclaration({ fun, body }) {
+      const name = gen(fun)
+      const params = fun.params.map(gen).join(", ")
+      return `function ${name}(${params}) { return ${gen(body)}; }`
+    },
+    Function(fun) {
+      return targetName(fun)
+    },
+    PrintStatement({ argument }) {
+      return `console.log(${gen(argument)});`
+    },
+    Assignment({ target, source }) {
+      return `${gen(target)} = ${gen(source)};`
+    },
+    WhileStatement({ test, body }) {
+      return [`while (${gen(test)}) {`, ...gen(body), "}"].join("\n")
+    },
+    Call({ callee, args }) {
+      return `${gen(callee)}(${gen(args)})`
+    },
+    Conditional({ test, consequent, alternate }) {
+      return `((${gen(test)}) ? (${gen(consequent)}) : (${gen(alternate)}))`
+    },
+    BinaryExpression({ left, op, right }) {
+      return `(${gen(left)} ${op} ${gen(right)})`
+    },
+    UnaryExpression({ op, operand }) {
+      return `${op}(${gen(operand)})`
+    },
+    Number(n) {
+      return n
+    },
+    Boolean(b) {
+      return b
+    },
+    Array(a) {
+      return a.map(gen)
+    },
+  }
+  return gen(program)
 }
