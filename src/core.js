@@ -1,3 +1,7 @@
+// These are the entities of the Bella language, produced by the analyzer.
+// The classes do not have analyze, optimize, or generate methods, because
+// we prefer to keep the analyzer, optimizer, and generator separate.
+
 export class Program {
   constructor(statements) {
     this.statements = statements
@@ -74,5 +78,8 @@ export class Function {
   }
 }
 
+// We don't need to create our own classes for Numeric and Boolean literals,
+// We'll just be using JavaScript's numbers and booleans. Since we want them
+// to have a type property, will do some controversial monkey-patching.
 Number.prototype.type = "number"
 Boolean.prototype.type = "boolean"
