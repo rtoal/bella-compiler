@@ -11,12 +11,10 @@ export default function optimize(node) {
 }
 
 // A smattering of optimizations, including (1) Constant folding for
-// operators (including ?:, &&, and ||), (2) Some strength reductions
-// (+0, -0, *0, *1, etc.), and (3) Dead code elimination (assignments
-// to self, while-false). If an optimizer returns something directly,
-// that is used as the replacement for the node. If it returns null,
-// that means the node should be removed. If it returns nothing, we
-// just use whatever the optimizer did to the node.
+// (2) Some strength reductions (+0, -0, *0, *1, etc.), and (3) Dead
+// code elimination (assignments to self, while-false). If an optimizer
+// returns something directly, that is used as the replacement for the
+// node. If it returns null, that means the node should be removed.
 const optimizers = {
   Program(p) {
     p.statements = optimize(p.statements)
@@ -33,7 +31,7 @@ const optimizers = {
   },
   WhileStatement(s) {
     s.test = optimize(s.test)
-    if (s.test === false) return null
+    if (s.test === 0) return null
     s.body = optimize(s.body)
   },
   PrintStatement(s) {
@@ -47,7 +45,7 @@ const optimizers = {
     c.test = optimize(c.test)
     c.consequent = optimize(c.consequent)
     c.alternate = optimize(c.alternate)
-    if (typeof c.test === "boolean") {
+    if (typeof c.test === "number") {
       return c.test ? c.consequent : c.alternate
     }
   },
@@ -55,6 +53,10 @@ const optimizers = {
     e.left = optimize(e.left)
     e.right = optimize(e.right)
     if (typeof e.left === "number") {
+      if (e.op === "||" && e.left) return true
+      if (e.op === "||" && !e.left) return e.right
+      if (e.op === "&&" && e.left) return e.right
+      if (e.op === "&&" && !e.left) return false
       if (typeof e.right === "number") {
         // Left is a constant number, Right is a constant number
         if (e.op === "+") return e.left + e.right
@@ -89,19 +91,12 @@ const optimizers = {
       if (e.op === "%" && e.right === 0) return NaN
       if (e.op === "**" && e.right === 1) return e.left
       if (e.op === "**" && e.right === 0) return 1
-    } else if (typeof e.left === "boolean") {
-      if (e.op === "||" && e.left) return true
-      if (e.op === "||" && !e.left) return e.right
-      if (e.op === "&&" && e.left) return e.right
-      if (e.op === "&&" && !e.left) return false
     }
   },
   UnaryExpression(e) {
     e.operand = optimize(e.operand)
     if (typeof e.operand === "number") {
       if (e.op === "-") return -e.operand
-    }
-    if (typeof e.operand === "boolean") {
       if (e.op === "!") return !e.operand
     }
   },

@@ -18,43 +18,6 @@ function check(condition, message, { at: errorLocation }) {
   }
 }
 
-check.assignable = ({ from, to, at }) => {
-  if (from.type === undefined) {
-    if (from instanceof core.Variable) from.type = to.type
-    else if (from instanceof core.Call) from.callee.type = from.type = to.type
-  }
-  if (to.type === undefined) {
-    if (to instanceof core.Variable) to.type = from.type
-    else if (to instanceof core.Call) to.callee.type = to.type = from.type
-  }
-  const stillBothUndefined = from.type === undefined && to.type === undefined
-  check(!stillBothUndefined, `Cannot infer types`, { at })
-  check(from.type === to.type, `Expected ${to.type}, got ${from.type}`, { at })
-}
-
-check.isANumber = (entity, { at }) => {
-  check.assignable({ from: entity, to: { type: "number" }, at })
-}
-
-check.isABoolean = (entity, { at }) => {
-  check.assignable({ from: entity, to: { type: "boolean" }, at })
-}
-
-check.bothAreNumbers = (entity1, entity2, { at }) => {
-  check.isANumber(entity1, { at })
-  check.isANumber(entity2, { at })
-}
-
-check.bothAreBooleans = (entity1, entity2, { at }) => {
-  check.isABoolean(entity1, { at })
-  check.isABoolean(entity2, { at })
-}
-
-check.correctArgCount = (argCount, paramCount, { at }) => {
-  const message = `${paramCount} argument(s) required but ${argCount} passed`
-  check(argCount === paramCount, message, { at })
-}
-
 class Context {
   constructor(parent) {
     this.parent = parent
@@ -93,7 +56,7 @@ export default function analyze(match) {
       // was already defined in an outer scope.) Also we need to use the type
       // of the initializer for the type of the variable.
       const initializer = exp.rep()
-      const variable = new core.Variable(id.sourceString, initializer.type)
+      const variable = new core.Variable(id.sourceString)
       context.add(id, variable)
       return new core.VariableDeclaration(variable, initializer)
     },
@@ -105,11 +68,14 @@ export default function analyze(match) {
       const fun = new core.Function(id.sourceString)
       context.add(id, fun)
 
-      // The parameters and the body will go into a new inner context.
+      // The parameters and the body will go into a new inner context. Put
+      // the parameters in first, so that if there are any self-recursive
+      // calls in the body, they will be able to see the parameters. After
+      // the parameters and body are analyzed, pop back out to the original
+      // context.
       context = new Context(context)
       fun.params = parameters.rep()
       const body = exp.rep()
-      fun.type = body.type
       context = context.parent
 
       return new core.FunctionDeclaration(fun, body)
@@ -117,19 +83,14 @@ export default function analyze(match) {
 
     Params(_open, idList, _close) {
       return idList.asIteration().children.map((id) => {
-        // Create a variable entity for each parameter. The type is initially
-        // undefined, but type inference will kick in during the analysis of
-        // the function body.
-        const param = new core.Variable(id.sourceString, undefined)
-        context.add(id, param)
-        return param
+        const entity = new core.Variable(id.sourceString)
+        context.add(id, entity)
+        return entity
       })
     },
 
-    Statement_assign(id, eq, exp, _semicolon) {
-      const [target, source] = [id.rep(), exp.rep()]
-      check.assignable({ from: target, to: source, at: eq })
-      return new core.Assignment(target, source)
+    Statement_assign(id, _eq, exp, _semicolon) {
+      return new core.Assignment(id.rep(), exp.rep())
     },
 
     Statement_print(_print, exp, _semicolon) {
@@ -137,9 +98,7 @@ export default function analyze(match) {
     },
 
     Statement_while(_while, exp, block) {
-      const [test, body] = [exp.rep(), block.rep()]
-      check.isABoolean(test, { at: exp })
-      return new core.WhileStatement(test, body)
+      return new core.WhileStatement(exp.rep(), block.rep())
     },
 
     Block(_open, statements, _close) {
@@ -147,53 +106,35 @@ export default function analyze(match) {
     },
 
     Exp_unary(op, exp) {
-      const [o, x] = [op.sourceString, exp.rep()]
-      if (o === "-") check.isANumber(x, { at: exp })
-      else check.isABoolean(x, { at: exp })
-      return new core.UnaryExpression(o, x)
+      return new core.UnaryExpression(op.sourceString, exp.rep())
     },
 
-    Exp_ternary(exp1, _questionMark, exp2, colon, exp3) {
-      const [x, y, z] = [exp1.rep(), exp2.rep(), exp3.rep()]
-      check.isABoolean(x, { at: exp1 })
-      check.assignable({ from: y, to: z, at: colon })
-      return new core.Conditional(x, y, z)
+    Exp_ternary(exp1, _questionMark, exp2, _colon, exp3) {
+      return new core.Conditional(exp1.rep(), exp2.rep(), exp3.rep())
     },
 
     Exp1_binary(exp1, op, exp2) {
-      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
-      check.bothAreBooleans(x, y, { at: op })
-      return new core.BinaryExpression(o, x, y)
+      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
     },
 
     Exp2_binary(exp1, op, exp2) {
-      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
-      check.bothAreBooleans(x, y, { at: op })
-      return new core.BinaryExpression(o, x, y)
+      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
     },
 
     Exp3_binary(exp1, op, exp2) {
-      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
-      check.bothAreNumbers(x, y, { at: op })
-      return new core.BinaryExpression(o, x, y)
+      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
     },
 
     Exp4_binary(exp1, op, exp2) {
-      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
-      check.bothAreNumbers(x, y, { at: op })
-      return new core.BinaryExpression(o, x, y)
+      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
     },
 
     Exp5_binary(exp1, op, exp2) {
-      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
-      check.bothAreNumbers(x, y, { at: op })
-      return new core.BinaryExpression(o, x, y)
+      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
     },
 
     Exp6_binary(exp1, op, exp2) {
-      const [o, x, y] = [op.sourceString, exp1.rep(), exp2.rep()]
-      check.bothAreNumbers(x, y, { at: op })
-      return new core.BinaryExpression(o, x, y)
+      return new core.BinaryExpression(op.sourceString, exp1.rep(), exp2.rep())
     },
 
     Exp7_parens(_open, exp, _close) {
@@ -202,13 +143,10 @@ export default function analyze(match) {
 
     Call(id, open, expList, _close) {
       const callee = context.lookup(id, { expecting: core.Function })
-      const exps = expList.asIteration().children
-      check.correctArgCount(exps.length, callee.params.length, { at: open })
-      const args = exps.map((exp, i) => {
-        const arg = exp.rep()
-        check.assignable({ from: arg, to: callee.params[i], at: exp })
-        return arg
-      })
+      const args = expList.asIteration().children.map((exp) => exp.rep())
+      const [paramCount, argCount] = [callee.params.length, args.length]
+      const message = `${paramCount} argument(s) required but ${argCount} passed`
+      check(argCount === paramCount, message, { at: open })
       return new core.Call(callee, args)
     },
 
@@ -217,14 +155,14 @@ export default function analyze(match) {
     },
 
     true(_) {
-      return true
+      return 1
     },
 
     false(_) {
-      return false
+      return 0
     },
 
-    num(_whole, _point, _fraction) {
+    numeral(_whole, _point, _fraction) {
       return Number(this.sourceString)
     },
   })

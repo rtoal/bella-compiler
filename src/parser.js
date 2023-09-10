@@ -24,14 +24,14 @@ export const grammar = ohm.grammar(String.raw`Bella {
             | Exp6
   Exp6      = Exp7 "**" Exp6                           -- binary
             | Exp7
-  Exp7      = num
+  Exp7      = numeral
             | true
             | false
             | Call                                     -- call
             | id                                       -- id
             | "(" Exp ")"                              -- parens
   Call      = id "(" ListOf<Exp, ","> ")"
-  num       = digit+ ("." digit+)?
+  numeral   = digit+ ("." digit+)?
   let       = "let" ~idchar
   func      = "func" ~idchar
   print     = "print" ~idchar

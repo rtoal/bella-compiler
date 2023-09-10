@@ -40,46 +40,36 @@ export class PrintStatement {
 
 export class Call {
   constructor(callee, args) {
-    Object.assign(this, { callee, args, type: callee.type })
+    Object.assign(this, { callee, args })
   }
 }
 
 export class Conditional {
   constructor(test, consequent, alternate) {
-    const type = consequent.type
-    Object.assign(this, { test, consequent, alternate, type })
+    Object.assign(this, { test, consequent, alternate })
   }
 }
 
 export class BinaryExpression {
   constructor(op, left, right) {
-    const booleanProducers = ["||", "&&", "<", "<=", "==", "!=", ">", ">="]
-    const type = booleanProducers.includes(op) ? "boolean" : "number"
-    Object.assign(this, { op, left, right, type })
+    Object.assign(this, { op, left, right })
   }
 }
 
 export class UnaryExpression {
   constructor(op, operand) {
-    const type = op === "!" ? "boolean" : "number"
-    Object.assign(this, { op, operand, type })
+    Object.assign(this, { op, operand })
   }
 }
 
 export class Variable {
-  constructor(name, type) {
-    Object.assign(this, { name, type })
+  constructor(name) {
+    Object.assign(this, { name })
   }
 }
 
 export class Function {
-  constructor(name, params, type) {
-    Object.assign(this, { name, params, type })
+  constructor(name, params) {
+    Object.assign(this, { name, params })
   }
 }
-
-// We don't need to create our own classes for Numeric and Boolean literals,
-// We'll just be using JavaScript's numbers and booleans. Since we want them
-// to have a type property, will do some controversial monkey-patching.
-Number.prototype.type = "number"
-Boolean.prototype.type = "boolean"

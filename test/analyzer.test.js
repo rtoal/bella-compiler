@@ -5,9 +5,9 @@ import * as core from "../src/core.js"
 
 const semanticChecks = [
   ["can infer types", "let x = 1; let y = x > 3;"],
-  ["variables can be printed", "let x = 1; let y = 1 > 3; print x; print y;"],
-  ["variables can be reassigned", "let x = 1; x = x * 5 / ((-3) + x);"],
-  ["can infer function tyoe", "func f(x) = f(x-1) * 2; print(f(3));"],
+  ["can print variables", "let x = 1; let y = 1 > 3; print x; print y;"],
+  ["can reassign variables", "let x = 1; x = x * 5 / ((-3) + x);"],
+  ["can infer function types", "func f(x) = f(x-1) * 2; print(f(3));"],
 ]
 
 const semanticErrors = [
@@ -29,7 +29,6 @@ const semanticErrors = [
     "func f(x) = 0; print(f(1, 2));",
     /1 argument\(s\) required but 2 passed/,
   ],
-  ["cannot infer", "func f(x) = f(x);", /Cannot infer types/],
 ]
 
 const sample = "let x=3;func f(x)=3*x;while(true){x=3;print(false?f(x):2);}"
@@ -58,10 +57,10 @@ describe("The analyzer", () => {
           f,
           new core.BinaryExpression("*", 3, localX)
         ),
-        new core.WhileStatement(true, [
+        new core.WhileStatement(1, [
           new core.Assignment(x, 3),
           new core.PrintStatement(
-            new core.Conditional(false, new core.Call(f, [x]), 2)
+            new core.Conditional(0, new core.Call(f, [x]), 2)
           ),
         ]),
       ])

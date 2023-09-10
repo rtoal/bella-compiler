@@ -56,7 +56,7 @@ const tests = [
   ["optimizes true conditionals", expression("true?3:5"), 3],
   ["optimizes false conditionals", expression("false?3:5"), 5],
   ["optimizes true-or", expression("true || y"), true],
-  ["optimizes false-or", expression("false || y"), y],
+  ["optimizes false-or", expression("0 || y"), y],
   ["optimizes true-and", expression("true && y"), y],
   ["optimizes false-and", expression("false && y"), false],
   ["leaves nonoptimizable binaries alone", expression("x ** 5"), power(x, 5)],
