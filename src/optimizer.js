@@ -12,9 +12,10 @@ export default function optimize(node) {
 
 // A smattering of optimizations, including (1) Constant folding for
 // (2) Some strength reductions (+0, -0, *0, *1, etc.), and (3) Dead
-// code elimination (assignments to self, while-false). If an optimizer
-// returns something directly, that is used as the replacement for the
-// node. If it returns null, that means the node should be removed.
+// code elimination (assignments to self), (4) Unreachable code
+// elimination (while-false). If an optimizer returns something
+// directly, that is used as the replacement for the node. If it
+// returns null, that means the node should be removed.
 const optimizers = {
   Program(p) {
     p.statements = optimize(p.statements)
@@ -53,12 +54,18 @@ const optimizers = {
     e.left = optimize(e.left)
     e.right = optimize(e.right)
     if (typeof e.left === "number") {
-      if (e.op === "||" && e.left) return true
-      if (e.op === "||" && !e.left) return e.right
-      if (e.op === "&&" && e.left) return e.right
-      if (e.op === "&&" && !e.left) return false
+      if (e.left && e.op === "||") return e.left
+      if (!e.left && e.op === "||") return e.right
+      if (e.left && e.op === "&&") return e.right
+      if (!e.left && e.op === "&&") return e.left
+      if (e.left === 0 && e.op === "+") return e.right
+      if (e.left === 1 && e.op === "*") return e.right
+      if (e.left === 0 && e.op === "-")
+        return new core.UnaryExpression("-", e.right)
+      if (e.left === 0 && ["*", "/", "%"].includes(e.op)) return 0
+      if (e.op === "**" && e.left === 1) return 1
       if (typeof e.right === "number") {
-        // Left is a constant number, Right is a constant number
+        // Both are constants, so constant-folding applies
         if (e.op === "+") return e.left + e.right
         if (e.op === "-") return e.left - e.right
         if (e.op === "*") return e.left * e.right
@@ -71,17 +78,8 @@ const optimizers = {
         if (e.op === "!=") return e.left != e.right
         if (e.op === ">=") return e.left >= e.right
         if (e.op === ">") return e.left > e.right
-      } else {
-        // Left is a constant number, Right is not
-        if (e.left === 0 && e.op === "+") return e.right
-        if (e.left === 1 && e.op === "*") return e.right
-        if (e.left === 0 && e.op === "-")
-          return new core.UnaryExpression("-", e.right)
-        if (e.left === 0 && ["*", "/", "%"].includes(e.op)) return 0
-        if (e.op === "**" && e.left === 1) return 1
       }
     } else if (typeof e.right === "number") {
-      // Left is not a constant number, Right is
       if (e.op === "+" && e.right === 0) return e.left
       if (e.op === "-" && e.right === 0) return e.left
       if (e.op === "*" && e.right === 1) return e.left

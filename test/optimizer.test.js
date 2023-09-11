@@ -55,10 +55,10 @@ const tests = [
   ["optimizes arguments", expression("f(20 + 61)"), call(oneParamFunc, [81])],
   ["optimizes true conditionals", expression("true?3:5"), 3],
   ["optimizes false conditionals", expression("false?3:5"), 5],
-  ["optimizes true-or", expression("true || y"), true],
+  ["optimizes true-or", expression("8 || y"), 8],
   ["optimizes false-or", expression("0 || y"), y],
-  ["optimizes true-and", expression("true && y"), y],
-  ["optimizes false-and", expression("false && y"), false],
+  ["optimizes true-and", expression("2 && y"), y],
+  ["optimizes false-and", expression("false && y"), 0],
   ["leaves nonoptimizable binaries alone", expression("x ** 5"), power(x, 5)],
   [
     "leaves nonoptimizable conditionals alone",
